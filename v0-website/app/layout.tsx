@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
+import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
 const inter = Inter({
@@ -27,6 +28,7 @@ export default function RootLayout({
       <body className={`font-sans ${inter.variable} antialiased`}>
         <Suspense fallback={null}>{children}</Suspense>
         <Analytics />
+        <Toaster />
       </body>
     </html>
   )

@@ -2,12 +2,15 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { FeedbackCard } from "@/components/feedback-card"
+import { supabase, type Feedback } from "@/lib/supabase"
+import { useToast } from "@/hooks/use-toast"
 
 export function ContactSection() {
   const [formData, setFormData] = useState({
@@ -15,11 +18,104 @@ export function ContactSection() {
     feedback: "",
     rating: 0,
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [feedbackList, setFeedbackList] = useState<Feedback[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const { toast } = useToast()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Fetch existing feedback
+  const fetchFeedback = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('feedback')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        throw error
+      }
+
+      setFeedbackList(data || [])
+    } catch (error) {
+      console.error('Error fetching feedback:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Set up real-time subscription
+  useEffect(() => {
+    fetchFeedback()
+
+    const channel = supabase
+      .channel('feedback_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'feedback'
+        },
+        (payload) => {
+          const newFeedback = payload.new as Feedback
+          setFeedbackList(prev => [newFeedback, ...prev])
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle form submission here
-    console.log("Feedback submitted:", formData)
+    setIsSubmitting(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('feedback')
+        .insert([
+          {
+            name: formData.name,
+            feedback: formData.feedback,
+            rating: formData.rating,
+          }
+        ])
+        .select()
+
+      if (error) {
+        throw error
+      }
+
+      // Add new feedback to the list immediately (optimistic update)
+      if (data && data[0]) {
+        setFeedbackList(prev => [data[0], ...prev])
+      }
+
+      // Reset form
+      setFormData({
+        name: "",
+        feedback: "",
+        rating: 0,
+      })
+
+      toast({
+        title: "Feedback submitted successfully!",
+        description: "Thank you for your feedback. I really appreciate it!",
+      })
+
+      console.log("Feedback submitted successfully:", data)
+    } catch (error) {
+      console.error("Error submitting feedback:", error)
+      toast({
+        title: "Error submitting feedback",
+        description: "There was an error submitting your feedback. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -105,12 +201,41 @@ export function ContactSection() {
 
               <Button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-base font-medium transition-all duration-200 hover:scale-105"
+                disabled={isSubmitting}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-base font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Submit Feedback
+                {isSubmitting ? "Submitting..." : "Submit Feedback"}
               </Button>
             </form>
           </Card>
+        </div>
+
+        {/* Feedback Display Section */}
+        <div className="mt-16">
+          <div className="text-center mb-8">
+            <h3 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">
+              What People Are Saying
+            </h3>
+            <div className="w-16 h-1 bg-primary mx-auto rounded-full"></div>
+          </div>
+
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : feedbackList.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground text-lg">
+                No feedback yet. Be the first to share your thoughts!
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+              {feedbackList.map((feedback) => (
+                <FeedbackCard key={feedback.id} feedback={feedback} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>
