@@ -62,7 +62,7 @@ export function FeedbackCard({ feedback }: FeedbackCardProps) {
       </CardHeader>
       <CardContent className="pt-0">
         <p className="text-sm text-muted-foreground leading-relaxed">
-          {feedback.feedback}
+          {feedback.message}
         </p>
       </CardContent>
     </Card>

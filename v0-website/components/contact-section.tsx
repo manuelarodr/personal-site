@@ -91,7 +91,7 @@ export function ContactSection() {
         .insert([
           {
             name: formData.name,
-            feedback: formData.feedback,
+            message: formData.feedback,
             rating: formData.rating,
           }
         ])

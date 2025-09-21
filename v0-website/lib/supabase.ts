@@ -8,7 +8,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export type Feedback = {
   id?: string
   name: string
-  feedback: string
+  message: string
   rating: number
   created_at?: string
 }
