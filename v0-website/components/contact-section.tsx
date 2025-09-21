@@ -70,9 +70,22 @@ export function ContactSection() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate that rating is selected
+    if (formData.rating === 0) {
+      toast({
+        title: "Rating required",
+        description: "Please select a rating before submitting.",
+        variant: "destructive",
+      })
+      return
+    }
+    
     setIsSubmitting(true)
 
     try {
+      console.log('Submitting feedback:', formData)
+      
       const { data, error } = await supabase
         .from('feedback')
         .insert([
@@ -85,8 +98,11 @@ export function ContactSection() {
         .select()
 
       if (error) {
+        console.error('Supabase error:', error)
         throw error
       }
+      
+      console.log('Feedback submitted successfully:', data)
 
       // Add new feedback to the list immediately (optimistic update)
       if (data && data[0]) {
